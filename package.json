@@ -44,7 +44,9 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.20.0",
     "react-native-webview": "13.13.5",
-    "twrnc": "^4.6.1"
+    "twrnc": "^4.6.1",
+    "@rnmapbox/maps": "^10.1.15",
+    "expo-location": "~16.5.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
