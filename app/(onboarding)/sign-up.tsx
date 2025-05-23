@@ -3,54 +3,77 @@ import CustomButton from "@/constants/CustomButton";
 import { icons, images } from "@/constants/OnboardingData";
 import { Link, router } from "expo-router";
 import { useState } from "react";
-import { Image, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Image, ScrollView, Text, View } from "react-native";
 import tw from 'twrnc';
+import { registerUser } from "@/utils/auth";
+
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone: string;
+}
+
+interface FormErrors {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  phone?: string;
+}
 
 const SignUp = () => {
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-
-  const [form, setForm] = useState({
-    name: "",
+  const [isLoading, setIsLoading] = useState(false);
+  const [form, setForm] = useState<FormData>({
+    firstName: "",
+    lastName: "",
     email: "",
     password: "",
+    phone: "",
   });
   
-  const [verificationCode, setVerificationCode] = useState("");
-  const [verificationError, setVerificationError] = useState("");
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  // Simplified onSignUp function (frontend only)
-  const onSignUpPress = () => {
-    // Basic validation
-    if (!form.name || !form.email || !form.password) {
-      alert("Please fill in all fields");
-      return;
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!form.firstName) newErrors.firstName = "First name is required";
+    if (!form.lastName) newErrors.lastName = "Last name is required";
+    
+    if (!form.email) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      newErrors.email = "Email is invalid";
     }
     
-    if (!form.email.includes('@')) {
-      alert("Please enter a valid email address");
-      return;
+    if (!form.password) {
+      newErrors.password = "Password is required";
+    } else if (form.password.length < 8) {
+      newErrors.password = "Password must be at least 8 characters";
+    }
+
+    if (!form.phone) {
+      newErrors.phone = "Phone number is required";
     }
     
-    if (form.password.length < 8) {
-      alert("Password must be at least 8 characters");
-      return;
-    }
-    
-    // Show verification modal (simulate sending verification code)
-    setShowVerificationModal(true);
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  // Simplified verification function (frontend only)
-  const onPressVerify = () => {
-    if (!verificationCode || verificationCode.length < 5) {
-      setVerificationError("Please enter a valid verification code");
-      return;
+  const handleSignUp = async () => {
+    if (!validateForm()) return;
+
+    try {
+      setIsLoading(true);
+      await registerUser(form);
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || "Registration failed. Please try again.";
+      Alert.alert("Sign Up Failed", errorMessage);
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Close verification modal and show success modal
-    setShowVerificationModal(false);
-    setShowSuccessModal(true);
   };
 
   return (
@@ -64,20 +87,35 @@ const SignUp = () => {
         </View>
         <View style={tw`p-5`}>
           <InputField
-            label="Name"
-            placeholder="Enter name"
+            label="First Name"
+            placeholder="Enter first name"
             icon={icons.person}
-            value={form.name}
-            onChangeText={(value) => setForm({ ...form, name: value })}
+            value={form.firstName}
+            onChangeText={(value) => setForm({ ...form, firstName: value })}
+            error={errors.firstName}
           />
+          
+          <InputField
+            label="Last Name"
+            placeholder="Enter last name"
+            icon={icons.person}
+            value={form.lastName}
+            onChangeText={(value) => setForm({ ...form, lastName: value })}
+            error={errors.lastName}
+          />
+
           <InputField
             label="Email"
             placeholder="Enter email"
             icon={icons.email}
             textContentType="emailAddress"
+            keyboardType="email-address"
+            autoCapitalize="none"
             value={form.email}
             onChangeText={(value) => setForm({ ...form, email: value })}
+            error={errors.email}
           />
+
           <InputField
             label="Password"
             placeholder="Enter password"
@@ -86,13 +124,29 @@ const SignUp = () => {
             textContentType="password"
             value={form.password}
             onChangeText={(value) => setForm({ ...form, password: value })}
+            error={errors.password}
           />
+
+          <InputField
+            label="Phone"
+            placeholder="Enter phone number"
+            icon={icons.phone}
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            value={form.phone}
+            onChangeText={(value) => setForm({ ...form, phone: value })}
+            error={errors.phone}
+          />
+
           <CustomButton
-            title="Sign Up"
-            onPress={onSignUpPress}
+            title={isLoading ? "Creating Account..." : "Sign Up"}
+            onPress={handleSignUp}
+            disabled={isLoading}
             className="mt-6"
           />
-          {/* <OAuth /> */}
+
+          {isLoading && <ActivityIndicator size="large" color="#414141" style={tw`mt-4`} />}
+
           <Link
             href="/sign-in"
             style={tw`text-lg text-center text-gray-500 mt-10`}
@@ -101,69 +155,6 @@ const SignUp = () => {
             <Text style={tw`text-blue-500`}>Log In</Text>
           </Link>
         </View>
-
-        {/* Verification Modal */}
-        <Modal
-          visible={showVerificationModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
-            <View style={tw`bg-white px-7 py-9 rounded-2xl m-5 w-10/12`}>
-              <Text style={tw`font-bold text-2xl mb-2`}>
-                Verification
-              </Text>
-              <Text style={tw`mb-5`}>
-                We&apos;ve sent a verification code to {form.email}.
-              </Text>
-              <InputField
-                label="Code"
-                icon={icons.lock}
-                placeholder="12345"
-                value={verificationCode}
-                keyboardType="numeric"
-                onChangeText={setVerificationCode}
-              />
-              {verificationError ? (
-                <Text style={tw`text-red-500 text-sm mt-1`}>
-                  {verificationError}
-                </Text>
-              ) : null}
-              <CustomButton
-                title="Verify Email"
-                onPress={onPressVerify}
-                className="mt-5 bg-green-500"
-              />
-            </View>
-          </View>
-        </Modal>
-
-        {/* Success Modal */}
-        <Modal
-          visible={showSuccessModal}
-          transparent={true}
-          animationType="slide"
-        >
-          <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
-            <View style={tw`bg-white px-7 py-9 rounded-2xl m-5 w-10/12`}>
-              <Image
-                source={images.check}
-                style={tw`w-28 h-28 mx-auto my-5`}
-              />
-              <Text style={tw`text-3xl font-bold text-center`}>
-                Verified
-              </Text>
-              <Text style={tw`text-base text-gray-400 text-center mt-2`}>
-                You have successfully verified your account.
-              </Text>
-              <CustomButton
-                title="Browse Home"
-                onPress={() => router.push("/(tabs)")}
-                className="mt-5"
-              />
-            </View>
-          </View>
-        </Modal>
       </View>
     </ScrollView>
   );
